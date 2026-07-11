@@ -21,14 +21,17 @@ const commands = [
         .addChannelOption(option => option.setName('채널').setDescription('로그를 받을 채널').setRequired(true))
 ].map(command => command.toJSON());
 
-const rest = new REST({ version: '10' }).setToken('MTUyNTUxODU2MTkxOTg5MzY0NA.G7GjNB.hHrarIz1ts61S9mVQA15qpzuttymuxIf9PJ7cc');
+// [수정 전]
+// const rest = new REST({ version: '10' }).setToken('봇_토큰');
+// await rest.put(Routes.applicationCommands('봇_ID'), ...);
 
-// 명령어 등록 (서버 실행 시 1회 수행)
+// [수정 후]
+const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+
 (async () => {
     try {
-        // [중요] 여기에 본인의 봇 Application ID를 넣으세요!
-        await rest.put(Routes.applicationCommands('1525518561919893644'), { body: commands });
-        console.log('슬래시 명령어(/반응로그) 등록 완료!');
+        await rest.put(Routes.applicationCommands(process.env.APP_ID), { body: commands });
+        console.log('슬래시 명령어 등록 완료!');
     } catch (error) { console.error(error); }
 })();
 
