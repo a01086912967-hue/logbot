@@ -1,6 +1,5 @@
 const { Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
-// 봇 설정 (인텐트와 파셜 설정 포함)
 const client = new Client({ 
     intents: [
         GatewayIntentBits.Guilds, 
@@ -11,7 +10,7 @@ const client = new Client({
     partials: [Partials.Message, Partials.Channel, Partials.Reaction] 
 });
 
-let logChannelId = null; // 로그 채널을 저장하는 변수
+let logChannelId = null;
 
 // 1. 슬래시 명령어 설정
 const commands = [
@@ -21,13 +20,9 @@ const commands = [
         .addChannelOption(option => option.setName('채널').setDescription('로그를 받을 채널').setRequired(true))
 ].map(command => command.toJSON());
 
-// [수정 전]
-// const rest = new REST({ version: '10' }).setToken('봇_토큰');
-// await rest.put(Routes.applicationCommands('봇_ID'), ...);
-
-// [수정 후]
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
+// 명령어 등록
 (async () => {
     try {
         await rest.put(Routes.applicationCommands(process.env.APP_ID), { body: commands });
@@ -49,20 +44,29 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
+// 이모지 이미지 URL 생성 함수
+const getEmojiUrl = (reaction) => {
+    return reaction.emoji.id 
+        ? `https://cdn.discordapp.com/emojis/${reaction.emoji.id}.${reaction.emoji.animated ? 'gif' : 'png'}` 
+        : null;
+};
+
 // 3. 로그 전송: 반응 추가
 client.on('messageReactionAdd', async (reaction, user) => {
     if (reaction.partial) await reaction.fetch();
     if (!logChannelId) return;
     
     const channel = await client.channels.fetch(logChannelId);
-    
+    const emojiUrl = getEmojiUrl(reaction);
+
     const addEmbed = new EmbedBuilder()
-        .setColor(0x00FF00) // 초록색
+        .setColor(0x00FF00)
         .setTitle('🟢 반응 남김')
+        .setThumbnail(emojiUrl)
         .addFields(
             { name: '유저', value: user.tag, inline: true },
             { name: '채널', value: reaction.message.channel.toString(), inline: true },
-            { name: '내용', value: `${user.tag}님이 ${reaction.message.channel}에서 ${reaction.emoji.name} 반응을 남겼습니다.` }
+            { name: '내용', value: `${user.tag}님이 ${reaction.emoji.name} 반응을 남겼습니다.` }
         )
         .setTimestamp();
 
@@ -75,10 +79,12 @@ client.on('messageReactionRemove', async (reaction, user) => {
     if (!logChannelId) return;
     
     const channel = await client.channels.fetch(logChannelId);
+    const emojiUrl = getEmojiUrl(reaction);
     
     const removeEmbed = new EmbedBuilder()
-        .setColor(0xFF0000) // 빨간색
+        .setColor(0xFF0000)
         .setTitle('🔴 반응 삭제')
+        .setThumbnail(emojiUrl)
         .addFields(
             { name: '유저', value: user.tag, inline: true },
             { name: '채널', value: reaction.message.channel.toString(), inline: true },
@@ -89,5 +95,4 @@ client.on('messageReactionRemove', async (reaction, user) => {
     channel.send({ embeds: [removeEmbed] });
 });
 
-// [중요] 여기에 본인의 봇 토큰을 넣으세요!
 client.login(process.env.TOKEN);
