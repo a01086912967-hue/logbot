@@ -12,12 +12,15 @@ const client = new Client({
 
 let logChannelId = null;
 
-// 1. 슬래시 명령어 설정
+// 1. 슬래시 명령어 설정 (두 개 등록)
 const commands = [
     new SlashCommandBuilder()
         .setName('반응로그')
         .setDescription('반응 로그를 받을 채널을 설정합니다.')
-        .addChannelOption(option => option.setName('채널').setDescription('로그를 받을 채널').setRequired(true))
+        .addChannelOption(option => option.setName('채널').setDescription('로그를 받을 채널').setRequired(true)),
+    new SlashCommandBuilder()
+        .setName('로그정지')
+        .setDescription('반응 로그 기능을 중단합니다.')
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
@@ -26,7 +29,7 @@ const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 (async () => {
     try {
         await rest.put(Routes.applicationCommands(process.env.APP_ID), { body: commands });
-        console.log('슬래시 명령어 등록 완료!');
+        console.log('슬래시 명령어(반응로그, 로그정지) 등록 완료!');
     } catch (error) { console.error('명령어 등록 실패:', error); }
 })();
 
@@ -34,27 +37,32 @@ client.once('ready', () => {
     console.log(`${client.user.tag} 봇이 온라인 상태입니다!`);
 });
 
-// 명령어 처리
+// 2. 명령어 처리 (여기서 기능 구분)
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
+
     if (interaction.commandName === '반응로그') {
         const channel = interaction.options.getChannel('채널');
         logChannelId = channel.id;
-        await interaction.reply(`✅ 로그 채널이 ${channel}로 설정되었습니다.`);
+        await interaction.reply(`✅ 반응 로그 채널이 ${channel}로 설정되었습니다.`);
+    } 
+    else if (interaction.commandName === '로그정지') {
+        logChannelId = null; // ID를 비워서 작동 안 하게 함
+        await interaction.reply('🚫 반응 로그 기능이 정지되었습니다.');
     }
 });
 
-// 이모지 이미지 URL 생성 함수
+// (이하 getEmojiUrl, messageReactionAdd, messageReactionRemove 로직은 이전과 동일합니다.)
 const getEmojiUrl = (reaction) => {
     return reaction.emoji.id 
         ? `https://cdn.discordapp.com/emojis/${reaction.emoji.id}.${reaction.emoji.animated ? 'gif' : 'png'}` 
         : null;
 };
 
-// 2. 반응 추가 로그
+// 3. 반응 추가 로그
 client.on('messageReactionAdd', async (reaction, user) => {
     try {
-        if (user.bot) return; // 봇 반응 무시 (무한루프 방지)
+        if (user.bot) return;
         if (reaction.partial) await reaction.fetch();
         if (!logChannelId) return;
         
@@ -74,12 +82,10 @@ client.on('messageReactionAdd', async (reaction, user) => {
             .setTimestamp();
 
         await channel.send({ embeds: [addEmbed] });
-    } catch (err) {
-        console.error('반응 추가 로그 전송 실패:', err);
-    }
+    } catch (err) { console.error('반응 추가 로그 전송 실패:', err); }
 });
 
-// 3. 반응 삭제 로그
+// 4. 반응 삭제 로그
 client.on('messageReactionRemove', async (reaction, user) => {
     try {
         if (user.bot) return;
@@ -102,9 +108,7 @@ client.on('messageReactionRemove', async (reaction, user) => {
             .setTimestamp();
 
         await channel.send({ embeds: [removeEmbed] });
-    } catch (err) {
-        console.error('반응 삭제 로그 전송 실패:', err);
-    }
+    } catch (err) { console.error('반응 삭제 로그 전송 실패:', err); }
 });
 
 client.login(process.env.TOKEN);
