@@ -12,7 +12,7 @@ const client = new Client({
 
 let logChannelId = null;
 
-// 1. 슬래시 명령어 설정 (두 개 등록)
+// 1. 슬래시 명령어 설정
 const commands = [
     new SlashCommandBuilder()
         .setName('반응로그')
@@ -25,7 +25,6 @@ const commands = [
 
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
-// 명령어 등록
 (async () => {
     try {
         await rest.put(Routes.applicationCommands(process.env.APP_ID), { body: commands });
@@ -37,7 +36,7 @@ client.once('ready', () => {
     console.log(`${client.user.tag} 봇이 온라인 상태입니다!`);
 });
 
-// 2. 명령어 처리 (여기서 기능 구분)
+// 2. 명령어 처리
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
@@ -47,12 +46,11 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply(`✅ 반응 로그 채널이 ${channel}로 설정되었습니다.`);
     } 
     else if (interaction.commandName === '로그정지') {
-        logChannelId = null; // ID를 비워서 작동 안 하게 함
+        logChannelId = null;
         await interaction.reply('🚫 반응 로그 기능이 정지되었습니다.');
     }
 });
 
-// (이하 getEmojiUrl, messageReactionAdd, messageReactionRemove 로직은 이전과 동일합니다.)
 const getEmojiUrl = (reaction) => {
     return reaction.emoji.id 
         ? `https://cdn.discordapp.com/emojis/${reaction.emoji.id}.${reaction.emoji.animated ? 'gif' : 'png'}` 
@@ -64,6 +62,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
     try {
         if (user.bot) return;
         if (reaction.partial) await reaction.fetch();
+        if (reaction.message.partial) await reaction.message.fetch(); // 메시지 정보 불러오기
         if (!logChannelId) return;
         
         const channel = await client.channels.fetch(logChannelId).catch(() => null);
@@ -77,6 +76,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
             .addFields(
                 { name: '유저', value: user.tag, inline: true },
                 { name: '채널', value: reaction.message.channel.toString(), inline: true },
+                { name: '메시지 이동', value: `[바로가기](${reaction.message.url})`, inline: true },
                 { name: '내용', value: `${user.tag}님이 ${reaction.emoji.name} 반응을 남겼습니다.` }
             )
             .setTimestamp();
@@ -90,6 +90,7 @@ client.on('messageReactionRemove', async (reaction, user) => {
     try {
         if (user.bot) return;
         if (reaction.partial) await reaction.fetch();
+        if (reaction.message.partial) await reaction.message.fetch(); // 메시지 정보 불러오기
         if (!logChannelId) return;
         
         const channel = await client.channels.fetch(logChannelId).catch(() => null);
@@ -103,6 +104,7 @@ client.on('messageReactionRemove', async (reaction, user) => {
             .addFields(
                 { name: '유저', value: user.tag, inline: true },
                 { name: '채널', value: reaction.message.channel.toString(), inline: true },
+                { name: '메시지 이동', value: `[바로가기](${reaction.message.url})`, inline: true },
                 { name: '내용', value: `${user.tag}님이 남긴 반응 ‘${reaction.emoji.name}’을(를) 삭제했습니다.` }
             )
             .setTimestamp();
